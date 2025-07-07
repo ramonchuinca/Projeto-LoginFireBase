@@ -1,28 +1,32 @@
 <template>
   <div class="container">
-    <!-- LADO DO TEXTO -->
     <div class="text-side">
-      <h1>Login</h1>
-      <p>Não possui uma conta? <router-link to="/register">Cadastre-se</router-link>.</p>
-      <p class="login-prompt">Faça seu login</p>
+      <h1>Cadastre-se</h1>
+      <p>Já tem uma conta? <router-link to="/login">Faça login</router-link>.</p>
+      <p class="register-prompt">Preencha o formulário para criar sua conta</p>
     </div>
 
-    <!-- LADO DO FORMULÁRIO -->
     <div class="form-side">
-      <input 
-        v-model.trim="form.email" 
-        type="email" 
-        placeholder="Email" 
-        autocomplete="username"
+      <input
+        v-model.trim="form.email"
+        type="email"
+        placeholder="Email"
+        autocomplete="email"
       />
-      <input 
-        v-model.trim="form.password" 
-        type="password" 
-        placeholder="Senha" 
-        autocomplete="current-password"
+      <input
+        v-model.trim="form.password"
+        type="password"
+        placeholder="Senha"
+        autocomplete="new-password"
       />
-      <button @click="login" :disabled="loading">
-        {{ loading ? 'Entrando...' : 'Entrar' }}
+      <input
+        v-model.trim="form.confirmPassword"
+        type="password"
+        placeholder="Confirme a senha"
+        autocomplete="new-password"
+      />
+      <button @click="register" :disabled="loading">
+        {{ loading ? 'Cadastrando...' : 'Registrar' }}
       </button>
 
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -40,17 +44,16 @@ const router = useRouter()
 
 const form = ref({
   email: '',
-  password: ''
+  password: '',
+  confirmPassword: ''
 })
 
 const errorMsg = ref('')
 const loading = ref(false)
 
-// Função login
-const login = async () => {
+const register = async () => {
   errorMsg.value = ''
 
-  // Validação simples
   if (!form.value.email) {
     errorMsg.value = 'Por favor, insira seu e-mail.'
     return
@@ -59,15 +62,21 @@ const login = async () => {
     errorMsg.value = 'Por favor, insira sua senha.'
     return
   }
-
-  console.log('Tentando login com:', form.value)
+  if (form.value.password !== form.value.confirmPassword) {
+    errorMsg.value = 'As senhas não conferem.'
+    return
+  }
 
   loading.value = true
+
   try {
-    await store.dispatch('login', form.value)
+    await store.dispatch('register', {
+      email: form.value.email,
+      password: form.value.password
+    })
     router.push('/dashboard')
   } catch (err) {
-    errorMsg.value = err.message || 'Erro inesperado ao tentar logar.'
+    errorMsg.value = err.message || 'Erro inesperado ao tentar registrar.'
   } finally {
     loading.value = false
   }
@@ -105,7 +114,7 @@ const login = async () => {
   cursor: pointer;
 }
 
-.login-prompt {
+.register-prompt {
   margin-top: 2rem;
   font-size: 1.2rem;
   color: #333;
