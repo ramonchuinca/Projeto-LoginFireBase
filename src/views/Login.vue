@@ -107,8 +107,15 @@
       </form>
       <p v-if="recoveryMsg" class="info-msg">{{ recoveryMsg }}</p>
     </dialog>
+
+    <!-- MODAL: LOGIN COM SUCESSO -->
+    <dialog v-if="loginSuccess" open class="modal success">
+      <h2>✅ Login realizado com sucesso!</h2>
+      <p>Você será redirecionado em instantes...</p>
+    </dialog>
   </div>
 </template>
+
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
@@ -137,6 +144,9 @@ const errorMsg = ref('')
 const signupMsg = ref('')
 const recoveryMsg = ref('')
 
+// === Modal de sucesso de login ===
+const loginSuccess = ref(false)          // ← ADICIONADO
+
 // === Slides do lado esquerdo ===
 const slides = [
   { title: 'EVENTOS', text: 'Participe de centenas de eventos em todo o país.' },
@@ -149,7 +159,7 @@ const currentSlide = ref(0)
 onMounted(() => {
   setInterval(() => {
     currentSlide.value = (currentSlide.value + 1) % slides.length
-  }, 4000)
+  }, 8000)          // 8000 ms = 8 s
 })
 
 // === Função de login ===
@@ -165,14 +175,28 @@ const login = async () => {
     return
   }
 
-  console.log('Tentando login com:', { ...form })
-
   loading.value = true
   try {
-    await store.dispatch('login', { email: form.email, password: form.password, remember: remember.value })
-    await router.push('/dashboard')
+    await store.dispatch('login', {
+      email: form.email,
+      password: form.password,
+      remember: remember.value
+    })
+
+    // Exibe modal de sucesso
+    loginSuccess.value = true
+
+    // Redireciona após 2 segundos
+    setTimeout(() => {
+      loginSuccess.value = false
+      router.push('/dashboard')
+    }, 2500)
+
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || err.message || 'Erro inesperado ao tentar logar.'
+    errorMsg.value =
+      err.response?.data?.message ||
+      err.message ||
+      'Erro inesperado ao tentar logar.'
   } finally {
     loading.value = false
   }
@@ -211,6 +235,7 @@ const sendRecovery = () => {
   }, 1000)
 }
 </script>
+
 
 <style>
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;900&display=swap");
@@ -258,8 +283,39 @@ html,body{
   gap: 0;                  /* sem espaço que possa ultrapassar largura */
   padding: 0 2rem;         /* margem interna opcional */
   position: relative;
-  left: -30vh;
 }
+/* animação de queda */
+@keyframes modal-drop {
+  0%   { transform: translateY(-100vh) scale(0.9); opacity: 0; }
+  80%  { transform: translateY(20px)   scale(1);   opacity: 1; } /* leve “bounce” */
+  100% { transform: translateY(0)      scale(1);   opacity: 1; }
+}
+
+/* diálogo genérico */
+.modal {
+  position: fixed;           /* cobre a tela toda */
+  inset: 0;
+  margin: auto;
+  width: clamp(280px, 80vw, 400px);
+  border: none;
+  border-radius: 8px;
+  padding: 2rem;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  z-index: 1000;
+
+  /* animação */
+  animation: modal-drop 1.35s cubic-bezier(.22,1.2,.36,1) forwards;
+}
+
+/* escurece o fundo (para dialog nativo) */
+.modal::backdrop {
+  background: rgba(0,0,0,.5);
+}
+
+
+
 .left-login,
 .rigth-login {
   flex: 1 1 50%;
@@ -427,6 +483,7 @@ html,body{
   font-size: 0.85rem;
   text-align: center;
 }
+
 
 /********  RESPONSIVO  ********/ 
 @media (max-width: 900px) {

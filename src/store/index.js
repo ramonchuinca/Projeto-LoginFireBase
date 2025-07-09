@@ -1,26 +1,34 @@
+// store/index.js
 import { createStore } from 'vuex'
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
+import createPersistedState from 'vuex-persistedstate'
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged           // <— NOVO
+} from 'firebase/auth'
 import { auth } from '@/firebase'
 
-export default createStore({
+const store = createStore({
   state() {
-    return { user: null }
+    return {
+      user: null
+    }
   },
 
   mutations: {
-    SET_USER(state, user)  { state.user = user },
-    CLEAR_USER(state)      { state.user = null }
+    SET_USER (state, user) { state.user = user },
+    CLEAR_USER (state)     { state.user = null }
   },
 
   actions: {
-    // LOGIN
-    async login({ commit }, { email, password }) {
+    // ---------- LOGIN ----------
+    async login ({ commit }, { email, password }) {
       try {
         const { user } = await signInWithEmailAndPassword(auth, email, password)
         commit('SET_USER', user)
         return user
       } catch (err) {
-        // Mapeia códigos comuns → mensagem amigável
         const map = {
           'auth/invalid-credential' : 'E‑mail ou senha inválidos',
           'auth/user-not-found'     : 'Usuário não encontrado',
@@ -31,19 +39,40 @@ export default createStore({
       }
     },
 
-    // REGISTRO
-    async register({ commit }, { email, password }) {
+    // ---------- REGISTRO ----------
+    async register ({ commit }, { email, password }) {
       const { user } = await createUserWithEmailAndPassword(auth, email, password)
       commit('SET_USER', user)
       return user
     },
 
-    async logout({ commit }) {
+    // ---------- LOGOUT ----------
+    async logout ({ commit }) {
+      await signOut(auth)          // encerra sessão no Firebase
       commit('CLEAR_USER')
     }
   },
 
   getters: {
     isLogged: state => !!state.user
+  },
+
+  // ---------- PERSISTÊNCIA ----------
+  plugins: [createPersistedState({
+    paths: ['user']               // só grava 'user'
+  })]
+})
+
+/**
+ * Sincroniza Vuex ↔ Firebase a cada refresh
+ * (caso o Firebase já tenha a sessão salva em cookie / indexedDB)
+ */
+onAuthStateChanged(auth, currentUser => {
+  if (currentUser) {
+    store.commit('SET_USER', currentUser)
+  } else {
+    store.commit('CLEAR_USER')
   }
 })
+
+export default store
