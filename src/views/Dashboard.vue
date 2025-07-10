@@ -46,11 +46,7 @@ import { useRouter } from 'vue-router'
 import { getAuth, updateProfile } from 'firebase/auth'
 import defaultAvatar from '@/assets/demon-slayer teste.jpg'
 
-// ================= CLOUDINARY CONFIG =====================
-// Defina em .env.local (Vite):
-// VITE_CLOUDINARY_URL=https://api.cloudinary.com/v1_1/<CLOUD_NAME>/image/upload
-// VITE_CLOUDINARY_UPLOAD_PRESET=<UPLOAD_PRESET>
-// =========================================================
+
 
 const store  = useStore()
 const router = useRouter()
