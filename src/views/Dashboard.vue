@@ -11,17 +11,34 @@
         <template v-if="user">
           <!-- Avatar botão (troca/remover) -->
           <label class="avatar-wrapper" title="Trocar avatar">
-            <img :src="user.photoURL || defaultAvatar" alt="Avatar usuário" class="avatar" />
-            <input type="file" accept="image/*" @change="onFileSelect" hidden />
+            <img
+              :src="user.photoURL || defaultAvatar"
+              alt="Avatar usuário"
+              class="avatar"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              @change="onFileSelect"
+              hidden
+            />
             <button
               v-if="user.photoURL"
               class="remove-avatar"
               @click.prevent="removeAvatar"
               title="Remover avatar"
-            >×</button>
+            >
+              ×
+            </button>
           </label>
+
+          <!-- Nome do usuário (opcional) -->
+          <span class="user-name">{{ user.displayName }}</span>
+
+          <!-- Botão de logout -->
           <button @click="logout">Sair</button>
         </template>
+
         <router-link v-else to="/login" class="login-link">Entrar</router-link>
       </div>
     </nav>
@@ -39,82 +56,64 @@
   </div>
 </template>
 
+
 <script setup>
-import { computed, ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { getAuth, updateProfile } from 'firebase/auth'
+import { updateProfile } from 'firebase/auth'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { doc, setDoc } from 'firebase/firestore'
+import { auth, storage, db } from '@/firebase'
 import defaultAvatar from '@/assets/demon-slayer teste.jpg'
 
 
-
-const store  = useStore()
+const store = useStore()
 const router = useRouter()
-const auth   = getAuth()
-
-const user      = computed(() => store.state.user)
 const uploading = ref(false)
 
-const logout = async () => {
-  await store.dispatch('logout')
-  router.push('/login')
-}
+const user = computed(() => store.state.user)
 
-const goHome = () => router.push('/')
+const uploadAvatar = async (file) => {
+  const userId = auth.currentUser.uid
+  const filePath = `avatars/${userId}/${file.name}`
+  const fileRef = storageRef(storage, filePath)
 
-/**
- * Faz upload de um arquivo para Cloudinary e devolve a URL segura.
- */
-const uploadToCloudinary = async (file) => {
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET)
+  await uploadBytes(fileRef, file)
+  const url = await getDownloadURL(fileRef)
 
-  const res = await fetch(import.meta.env.VITE_CLOUDINARY_URL, {
-    method: 'POST',
-    body: fd,
+  // Atualiza auth profile
+  await updateProfile(auth.currentUser, { photoURL: url })
+
+  // Atualiza Firestore com nova imagem
+  await setDoc(doc(db, 'usuarios', userId), {
+    nome: auth.currentUser.displayName || '',
+    email: auth.currentUser.email,
+    photoURL: url
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error?.message || 'Falha no upload')
-  return data.secure_url
+
+  store.commit('SET_USER', {
+    ...store.state.user,
+    photoURL: url
+  })
 }
 
-// Upload / troca de avatar via Cloudinary
 const onFileSelect = async (e) => {
   const file = e.target.files[0]
   if (!file || !auth.currentUser) return
   try {
     uploading.value = true
-    const url = await uploadToCloudinary(file)
-
-    await updateProfile(auth.currentUser, { photoURL: url })
-    await auth.currentUser.reload()
-
-    store.commit('SET_USER', {
-      ...store.state.user,
-      photoURL: auth.currentUser.photoURL,
-    })
+    await uploadAvatar(file)
   } catch (err) {
     console.error('Erro ao trocar avatar:', err)
-    alert('Não foi possível enviar a imagem.')
+    alert('Falha ao enviar imagem.')
   } finally {
     uploading.value = false
   }
 }
-
-// Remover avatar (define foto default)
-const removeAvatar = async () => {
-  if (!auth.currentUser) return
-  try {
-    await updateProfile(auth.currentUser, { photoURL: '' })
-    await auth.currentUser.reload()
-
-    store.commit('SET_USER', { ...store.state.user, photoURL: '' })
-  } catch (err) {
-    console.error('Erro ao remover avatar:', err)
-  }
-}
 </script>
+
+
 
 <style scoped>
 /**************************** RESET *****************************/
